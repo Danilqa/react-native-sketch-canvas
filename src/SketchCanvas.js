@@ -58,7 +58,7 @@ class SketchCanvas extends React.Component {
         permissionDialogMessage: PropTypes.string,
     };
 
-    static HIGHLIGHT_DEATH_ZONE = 15;
+    static HIGHLIGHT_DEATH_ZONE = 10;
 
     static defaultProps = {
         style: null,
