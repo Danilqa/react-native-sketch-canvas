@@ -58,15 +58,17 @@ class SketchCanvas extends React.Component {
         permissionDialogMessage: PropTypes.string,
     };
 
+    static HIGHLIGHT_DEATH_ZONE = 15;
+
     static defaultProps = {
         style: null,
         strokeColor: '#000000',
         strokeWidth: 3,
-        onPathsChange: () => { },
-        onStrokeStart: () => { },
-        onStrokeChanged: () => { },
-        onStrokeEnd: () => { },
-        onSketchSaved: () => { },
+        onPathsChange: () => {},
+        onStrokeStart: () => {},
+        onStrokeChanged: () => {},
+        onStrokeEnd: () => {},
+        onSketchSaved: () => {},
         user: null,
 
         touchEnabled: true,
@@ -200,9 +202,11 @@ class SketchCanvas extends React.Component {
     }
 
     onPanResponderRelease = (evt, gestureState) => {
-        if (!this.props.touchEnabled) {
+        if (!this.props.touchEnabled || this.state.tick <= SketchCanvas.HIGHLIGHT_DEATH_ZONE) {
+            this.clear();
             return;
         }
+
         if (this._path) {
             this.props.onStrokeEnd({ path: this._path, size: this._size, drawer: this.props.user });
             this._paths.push({ path: this._path, size: this._size, drawer: this.props.user });
@@ -211,10 +215,13 @@ class SketchCanvas extends React.Component {
     };
 
     onPanResponderMove = (evt, gestureState) => {
-        if (!this.props.touchEnabled) {
+        if (!this.props.touchEnabled || 2 <= evt.nativeEvent.changedTouches.length) {
+            this.clear();
+            this.setState({ tick: 0 });
             return;
         }
-        if (this._path) {
+        this.setState({ tick: this.state.tick + 1 });
+        if (this._path && SketchCanvas.HIGHLIGHT_DEATH_ZONE < this.state.tick) {
             UIManager.dispatchViewManagerCommand(this._handle, UIManager.RNSketchCanvas.Commands.addPoint, [
                 parseFloat((gestureState.moveX - this._offset.x).toFixed(2) * this._screenScale),
                 parseFloat((gestureState.moveY - this._offset.y).toFixed(2) * this._screenScale)
@@ -227,9 +234,10 @@ class SketchCanvas extends React.Component {
     };
 
     onPanResponderGrant = (evt, gestureState) => {
-        if (!this.props.touchEnabled) {
+        if (!this.props.touchEnabled || 2 <= evt.nativeEvent.changedTouches.length) {
             return;
         }
+        this.setState({ tick: 0 });
         const e = evt.nativeEvent;
         this._offset = { x: e.pageX - e.locationX, y: e.pageY - e.locationY };
         this._path = {
@@ -267,35 +275,40 @@ class SketchCanvas extends React.Component {
         );
     }
 
-  render() {
-    return (
-      <RNSketchCanvas
-        ref={ref => {
-          this._handle = ReactNative.findNodeHandle(ref)
-        }}
-        style={this.props.style}
-        onLayout={e => {
-          this._size = { width: e.nativeEvent.layout.width, height: e.nativeEvent.layout.height }
-          this._initialized = true
-          this._pathsToProcess.length > 0 && this._pathsToProcess.forEach(p => this.addPath(p))
-        }}
-        {...this.panResponder.panHandlers}
-        onChange={(e) => {
-          if (e.nativeEvent.hasOwnProperty('pathsUpdate')) {
-            this.props.onPathsChange(e.nativeEvent.pathsUpdate)
-          } else if (e.nativeEvent.hasOwnProperty('success') && e.nativeEvent.hasOwnProperty('path')) {
-            this.props.onSketchSaved(e.nativeEvent.success, e.nativeEvent.path)
-          } else if (e.nativeEvent.hasOwnProperty('success')) {
-            this.props.onSketchSaved(e.nativeEvent.success)
-          }
-        }}
-        localSourceImage={this.props.localSourceImage}
-        permissionDialogTitle={this.props.permissionDialogTitle}
-        permissionDialogMessage={this.props.permissionDialogMessage}
-        text={this.state.text}
-      />
-    );
-  }
+    render() {
+        const { tick } = this.state;
+        let [style] = this.props.style;
+        const display = tick <= SketchCanvas.HIGHLIGHT_DEATH_ZONE ? 'none' : style.display;
+        style = { ...style, display };
+
+        return (
+            <RNSketchCanvas
+                ref={ref => {
+                    this._handle = ReactNative.findNodeHandle(ref);
+                }}
+                style={[style]}
+                onLayout={e => {
+                    this._size = { width: e.nativeEvent.layout.width, height: e.nativeEvent.layout.height };
+                    this._initialized = true;
+                    this._pathsToProcess.length > 0 && this._pathsToProcess.forEach(p => this.addPath(p));
+                }}
+                {...this.panResponder.panHandlers}
+                onChange={(e) => {
+                    if (e.nativeEvent.hasOwnProperty('pathsUpdate')) {
+                        this.props.onPathsChange(e.nativeEvent.pathsUpdate);
+                    } else if (e.nativeEvent.hasOwnProperty('success') && e.nativeEvent.hasOwnProperty('path')) {
+                        this.props.onSketchSaved(e.nativeEvent.success, e.nativeEvent.path);
+                    } else if (e.nativeEvent.hasOwnProperty('success')) {
+                        this.props.onSketchSaved(e.nativeEvent.success);
+                    }
+                }}
+                localSourceImage={this.props.localSourceImage}
+                permissionDialogTitle={this.props.permissionDialogTitle}
+                permissionDialogMessage={this.props.permissionDialogMessage}
+                text={this.state.text}
+            />
+        );
+    }
 }
 
 SketchCanvas.MAIN_BUNDLE = Platform.OS === 'ios' ? UIManager.RNSketchCanvas.Constants.MainBundlePath : '';
