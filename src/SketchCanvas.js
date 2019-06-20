@@ -278,8 +278,8 @@ class SketchCanvas extends React.Component {
     render() {
         const { tick } = this.state;
         let [style] = this.props.style;
-        const display = tick <= SketchCanvas.HIGHLIGHT_DEATH_ZONE ? 'none' : style.display;
-        style = { ...style, display };
+        const opacity = tick <= SketchCanvas.HIGHLIGHT_DEATH_ZONE ? 0 : style.opacity;
+        style = { ...style, opacity };
 
         return (
             <RNSketchCanvas
